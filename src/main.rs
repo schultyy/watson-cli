@@ -1,5 +1,19 @@
 extern crate clap;
+extern crate flate2;
+extern crate tar;
+
+use std::fs::File;
+use flate2::read::GzDecoder;
+use tar::Archive;
 use clap::{Arg, App};
+
+fn decompress_file(filename: String) {
+  let tar_gz = File::open(filename).unwrap();
+  let tar = GzDecoder::new(tar_gz);
+
+  let mut archive = Archive::new(tar);
+  archive.unpack(".").unwrap();
+}
 
 fn main() {
   let matches = App::new("Watson CLI")
@@ -21,5 +35,8 @@ fn main() {
   let server = matches.value_of("server").unwrap_or("http://localhost:8000");
   println!("Value for server: {}", server);
 
-  println!("Using input file: {}", matches.value_of("INPUT").unwrap());
+  let filename = matches.value_of("INPUT").unwrap();
+  println!("Using input file: {}", filename);
+
+  decompress_file(filename.to_string());
 }

@@ -5,5 +5,3 @@ authors = ["Jan Schulte <hello@unexpected-co.de>"]
 
 [dependencies]
 clap = "2.31.2"
-flate2 = "1.0"
-tar = "0.4"

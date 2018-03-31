@@ -1,22 +1,7 @@
 extern crate clap;
-extern crate flate2;
-extern crate tar;
 
-use std::fs::File;
-use std::io::Error;
-use std::error::Error as GeneralError;
-use flate2::read::GzDecoder;
-use tar::Archive;
 use clap::{Arg, App};
 
-fn decompress_file(filename: String) -> Result<(), Error> {
-  let tar_gz = File::open(filename)?;
-  let tar = GzDecoder::new(tar_gz);
-
-  let mut archive = Archive::new(tar);
-  archive.unpack(".").unwrap();
-  Ok(())
-}
 
 fn main() {
   let matches = App::new("Watson CLI")
@@ -40,11 +25,4 @@ fn main() {
 
   let filename = matches.value_of("INPUT").unwrap();
   println!("Using input file: {}", filename);
-
-  match decompress_file(filename.to_string()) {
-    Ok(()) => { },
-    Err(err) => {
-      println!("[ERR] Decompressing file: {}", err.description());
-    }
-  }
 }

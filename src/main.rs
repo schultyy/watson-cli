@@ -1,13 +1,20 @@
 extern crate clap;
+extern crate futures;
+extern crate hyper;
+extern crate tokio_core;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
 use clap::{Arg, App};
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::Error;
 use std::path::Path;
-use std::ffi::OsStr;
+use std::io::{self, Error};
+use futures::{Future, Stream};
+use tokio_core::reactor::Core;
+use hyper::{Client, Method, Request};
+use hyper::header::{ContentLength, ContentType};
+use serde_json::Value;
 
 #[derive(Serialize)]
 pub struct LogFile {
@@ -62,5 +69,25 @@ fn main() {
   let filename = get_filename(full_path).expect(&format!("Cannot get filename for {}", full_path));
   let json_content = produce_json_payload(filename, file_content);
 
-  println!("{}", json_content);
+  let mut core = Core::new().expect("Cannot build event loop");
+  let client = Client::new(&core.handle());
+  let uri = format!("{}/file", server).parse().expect("Expected valid server");
+  let mut request = Request::new(Method::Post, uri);
+  request.headers_mut().set(ContentType::json());
+  request.headers_mut().set(ContentLength(json_content.len() as u64));
+  request.set_body(json_content);
+  let post = client.request(request).and_then(|response| {
+    println!("POST: {}", response.status());
+    response.body().concat2().and_then(move |body| {
+      let v: Value = serde_json::from_slice(&body).map_err(|e| {
+          io::Error::new(
+              io::ErrorKind::Other,
+              e
+          )
+      })?;
+      println!("{}", v["id"].as_str().expect("ID has to be of data type string"));
+      Ok(())
+    })
+  });
+  core.run(post).unwrap();
 }

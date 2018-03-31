@@ -5,7 +5,7 @@ extern crate tokio_core;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
-use clap::{Arg, App};
+use clap::{Arg, App, SubCommand};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -81,17 +81,20 @@ fn main() {
                               .value_name("SERVER")
                               .help("Sets a custom server")
                               .takes_value(true))
-                        .arg(Arg::with_name("INPUT")
-                              .help("Sets the input file to use")
-                              .required(true)
-                              .index(1))
+                        .subcommand(SubCommand::with_name("index")
+                              .about("Indexes a new file")
+                              .arg(Arg::with_name("INPUT")
+                                    .help("Sets the input file to use")
+                                    .required(true)
+                                    .index(1)))
                         .get_matches();
 
   let server = matches.value_of("server").unwrap_or("http://localhost:8000");
   println!("Value for server: {}", server);
 
-  let full_path = matches.value_of("INPUT").unwrap();
-  println!("Using input file: {}", full_path);
-
-  index_file(full_path, server);
+  if let Some(sub_command) = matches.subcommand_matches("index") {
+    let full_path = sub_command.value_of("INPUT").unwrap();
+    println!("Using input file: {}", full_path);
+    index_file(full_path, server);
+  }
 }

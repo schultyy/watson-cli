@@ -124,6 +124,12 @@ fn main() {
                                     .help("Sets the new analyzer to add")
                                     .required(true)
                                     .index(1)))
+                        .subcommand(SubCommand::with_name("watch")
+                              .about("Watches a specific directory")
+                              .arg(Arg::with_name("DIRECTORY")
+                                    .help("Specifies the directory to watch")
+                                    .required(true)
+                                    .index(1)))
                         .get_matches();
 
   let server = matches.value_of("server").unwrap_or("http://localhost:8000");
@@ -139,5 +145,11 @@ fn main() {
     let new_analyzer = add_analyzer_command.value_of("ANALYZER").unwrap();
     println!("Adding analyzer: {}", new_analyzer);
     add_analyzer(new_analyzer, server);
+  }
+
+  if let Some(directory_watch_command) = matches.subcommand_matches("watch") {
+    let watch_path = directory_watch_command.value_of("DIRECTORY").unwrap();
+    println!("Watching directory {}", watch_path);
+
   }
 }

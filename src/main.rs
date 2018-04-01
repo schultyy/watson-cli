@@ -22,6 +22,11 @@ pub struct LogFile {
   pub name: String
 }
 
+#[derive(Serialize)]
+pub struct NewAnalyzer {
+  analyzer: String
+}
+
 fn read_file(file_path: String) -> Result<String, Error> {
   let mut file = File::open(file_path)?;
   let mut contents = String::new();
@@ -70,6 +75,32 @@ fn index_file(full_path: &str, server: &str) {
   core.run(post).unwrap();
 }
 
+fn add_analyzer(new_analyzer: &str, server: &str) {
+  let json_content = json!(NewAnalyzer { analyzer: new_analyzer.to_string() }).to_string();
+
+  let mut core = Core::new().expect("Cannot build event loop");
+  let client = Client::new(&core.handle());
+  let uri = format!("{}/analyzer", server).parse().expect("Expected valid server");
+  let mut request = Request::new(Method::Post, uri);
+  request.headers_mut().set(ContentType::json());
+  request.headers_mut().set(ContentLength(json_content.len() as u64));
+  request.set_body(json_content);
+  let post = client.request(request).and_then(|response| {
+    println!("POST: {}", response.status());
+    response.body().concat2().and_then(move |body| {
+      let v: Value = serde_json::from_slice(&body).map_err(|e| {
+          io::Error::new(
+              io::ErrorKind::Other,
+              e
+          )
+      })?;
+      println!("{}", v);
+      Ok(())
+    })
+  });
+  core.run(post).unwrap();
+}
+
 fn main() {
   let matches = App::new("Watson CLI")
                         .version("1.0")
@@ -87,14 +118,26 @@ fn main() {
                                     .help("Sets the input file to use")
                                     .required(true)
                                     .index(1)))
+                        .subcommand(SubCommand::with_name("add_analyzer")
+                              .about("Adds a new analyzer")
+                              .arg(Arg::with_name("ANALYZER")
+                                    .help("Sets the new analyzer to add")
+                                    .required(true)
+                                    .index(1)))
                         .get_matches();
 
   let server = matches.value_of("server").unwrap_or("http://localhost:8000");
   println!("Value for server: {}", server);
 
-  if let Some(sub_command) = matches.subcommand_matches("index") {
-    let full_path = sub_command.value_of("INPUT").unwrap();
+  if let Some(index_command) = matches.subcommand_matches("index") {
+    let full_path = index_command.value_of("INPUT").unwrap();
     println!("Using input file: {}", full_path);
     index_file(full_path, server);
+  }
+
+  if let Some(add_analyzer_command) = matches.subcommand_matches("add_analyzer") {
+    let new_analyzer = add_analyzer_command.value_of("ANALYZER").unwrap();
+    println!("Adding analyzer: {}", new_analyzer);
+    add_analyzer(new_analyzer, server);
   }
 }

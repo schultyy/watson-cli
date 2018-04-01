@@ -18,7 +18,7 @@ use tokio_core::reactor::Core;
 use hyper::{Client, Method, Request};
 use hyper::header::{ContentLength, ContentType};
 use serde_json::Value;
-use notify::{RecommendedWatcher, Watcher, RecursiveMode};
+use notify::{DebouncedEvent, RecommendedWatcher, Watcher, RecursiveMode};
 
 #[derive(Serialize)]
 pub struct LogFile {
@@ -105,7 +105,13 @@ fn add_analyzer(new_analyzer: &str, server: &str) {
   core.run(post).unwrap();
 }
 
-fn watch(directory: &str) -> notify::Result<()> {
+fn handle_watch_event(event: DebouncedEvent, server: &str) {
+  if let DebouncedEvent::Create(filename) = event {
+    println!("{:?}", filename);
+  }
+}
+
+fn watch(directory: &str, server: &str) -> notify::Result<()> {
   let (tx, rx) = channel();
 
   let mut watcher: RecommendedWatcher = try!(Watcher::new(tx, Duration::from_secs(2)));
@@ -113,7 +119,7 @@ fn watch(directory: &str) -> notify::Result<()> {
 
   loop {
     match rx.recv() {
-      Ok(event) => println!("{:?}", event),
+      Ok(event) => handle_watch_event(event, server),
       Err(e) => println!("watch error: {:?}", e),
     }
   }
@@ -168,7 +174,7 @@ fn main() {
   if let Some(directory_watch_command) = matches.subcommand_matches("watch") {
     let watch_path = directory_watch_command.value_of("DIRECTORY").unwrap();
     println!("Watching directory {}", watch_path);
-    if let Err(e) = watch(watch_path) {
+    if let Err(e) = watch(watch_path, server) {
       println!("error: {:?}", e)
     }
   }

@@ -2,6 +2,7 @@ extern crate clap;
 extern crate futures;
 extern crate hyper;
 extern crate tokio_core;
+extern crate notify;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 
@@ -10,11 +11,14 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::io::{self, Error};
+use std::sync::mpsc::channel;
+use std::time::Duration;
 use futures::{Future, Stream};
 use tokio_core::reactor::Core;
 use hyper::{Client, Method, Request};
 use hyper::header::{ContentLength, ContentType};
 use serde_json::Value;
+use notify::{RecommendedWatcher, Watcher, RecursiveMode};
 
 #[derive(Serialize)]
 pub struct LogFile {
@@ -101,6 +105,20 @@ fn add_analyzer(new_analyzer: &str, server: &str) {
   core.run(post).unwrap();
 }
 
+fn watch(directory: &str) -> notify::Result<()> {
+  let (tx, rx) = channel();
+
+  let mut watcher: RecommendedWatcher = try!(Watcher::new(tx, Duration::from_secs(2)));
+  try!(watcher.watch(directory, RecursiveMode::Recursive));
+
+  loop {
+    match rx.recv() {
+      Ok(event) => println!("{:?}", event),
+      Err(e) => println!("watch error: {:?}", e),
+    }
+  }
+}
+
 fn main() {
   let matches = App::new("Watson CLI")
                         .version("1.0")
@@ -150,6 +168,8 @@ fn main() {
   if let Some(directory_watch_command) = matches.subcommand_matches("watch") {
     let watch_path = directory_watch_command.value_of("DIRECTORY").unwrap();
     println!("Watching directory {}", watch_path);
-
+    if let Err(e) = watch(watch_path) {
+      println!("error: {:?}", e)
+    }
   }
 }

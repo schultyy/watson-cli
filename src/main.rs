@@ -31,17 +31,17 @@ pub struct NewAnalyzer {
   analyzer: String
 }
 
-fn read_file(file_path: String) -> Result<String, Error> {
+fn read_file(file_path: &Path) -> Result<String, Error> {
   let mut file = File::open(file_path)?;
   let mut contents = String::new();
   file.read_to_string(&mut contents)?;
   Ok(contents)
 }
 
-fn get_filename(file_path: &str) -> Option<String> {
-  Path::new(file_path).file_name()
-                        .and_then(|filename| filename.to_str())
-                        .map(|s| s.to_string())
+fn get_filename(file_path: &Path) -> Option<String> {
+  file_path.file_name()
+            .and_then(|filename| filename.to_str())
+            .map(|s| s.to_string())
 }
 
 fn produce_json_payload(filename: String, contents: String) -> String {
@@ -51,9 +51,9 @@ fn produce_json_payload(filename: String, contents: String) -> String {
   }).to_string()
 }
 
-fn index_file(full_path: &str, server: &str) {
-  let file_content = read_file(full_path.to_string()).expect("Cannot read file");
-  let filename = get_filename(full_path).expect(&format!("Cannot get filename for {}", full_path));
+fn index_file(full_path: &Path, server: &str) {
+  let file_content = read_file(full_path).expect("Cannot read file");
+  let filename = get_filename(full_path).expect(&format!("Cannot get filename for {}", full_path.display()));
   let json_content = produce_json_payload(filename, file_content);
 
   let mut core = Core::new().expect("Cannot build event loop");
@@ -108,6 +108,7 @@ fn add_analyzer(new_analyzer: &str, server: &str) {
 fn handle_watch_event(event: DebouncedEvent, server: &str) {
   if let DebouncedEvent::Create(filename) = event {
     println!("{:?}", filename);
+    index_file(&filename, server);
   }
 }
 
@@ -162,7 +163,7 @@ fn main() {
   if let Some(index_command) = matches.subcommand_matches("index") {
     let full_path = index_command.value_of("INPUT").unwrap();
     println!("Using input file: {}", full_path);
-    index_file(full_path, server);
+    index_file(Path::new(full_path), server);
   }
 
   if let Some(add_analyzer_command) = matches.subcommand_matches("add_analyzer") {
